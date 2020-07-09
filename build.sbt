@@ -20,7 +20,8 @@ libraryDependencies ++= Seq(
   "ch.qos.logback"         % "logback-classic"               % "1.2.3",
   "com.adrianhurt"         %% "play-bootstrap"               % "1.2-P26-B3",
   "mysql"                  % "mysql-connector-java"          % "6.0.6",
-  "org.flywaydb"           %% "flyway-play"                  % "4.0.0"
+  "org.flywaydb"           %% "flyway-play"                  % "4.0.0",
+  "com.github.t3hnar"      %% "scala-bcrypt"                 % "3.1"  
 )
 import com.typesafe.config.{ Config, ConfigFactory }
 import scala.collection.JavaConverters._
@@ -37,6 +38,8 @@ flywayDriver := envConfig.value.getString("jdbcDriver")
 flywayUrl := envConfig.value.getString("jdbcUrl")
 flywayUser := envConfig.value.getString("jdbcUserName")
 flywayPassword := envConfig.value.getString("jdbcPassword")
+
+TwirlKeys.templateImports ++= Seq("forms._")
 
 // Adds additional packages into Twirl
 //TwirlKeys.templateImports += "com.example.controllers._"
