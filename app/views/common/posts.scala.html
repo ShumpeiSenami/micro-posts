@@ -9,11 +9,15 @@
               <img class="media-object img-rounded" src="@common.gravatarUrl(micropost.user.get.email)?s=50&amp;r=g&amp;d=identicon" alt="">
           </div>
           <div class="media-body">
-              <di>
-                  <a href="@routes.UsersController.show(micropost.userId)">
-                      @micropost.user.map(_.name).get</a>
-                  <span class="text-muted">posted at @micropost.createAt</span>
-              </di>
+              <div class="media-body">
+                  <div>
+                      @* pageを指定する *@
+                      <a href="@routes.UsersController.show(micropost.userId,1)">
+                          @micropost.user.map(_.name).get</a>
+                      <span class="text-muted">posted at @micropost.createAt</span>
+                  </div>
+
+              </div>
               <div>
                   <p>@micropost.content</p>
               </div>

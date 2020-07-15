@@ -11,7 +11,8 @@
                     <div>
                         @otherUser.name
                     </div>
-                        <p><a href="@routes.UsersController.show(otherUser.id.get)">@Messages("ViewProfile")</a></p>
+                        @* page を指定する *@
+                        <p><a href="@routes.UsersController.show(otherUser.id.get,1)">@Messages("ViewProfile")</a></p>
                 </div>
             </li>
         }
