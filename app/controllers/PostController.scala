@@ -14,42 +14,44 @@ import services._
 import skinny.Pagination
 
 @Singleton
-class PostController @Inject()(
-                              val userService: UserService,
-                              val microPostService: MicroPostService,
-                              components: ControllerComponents
-                              )
-  extends AbstractController (components)
-  with I18nSupport
-  with AuthConfigSupport
-  with AuthenticationElement {
+class PostController @Inject()(val userService: UserService,
+                               val microPostService: MicroPostService,
+                               val favoriteService: FavoriteService,
+                               components: ControllerComponents)
+  extends AbstractController(components)
+    with I18nSupport
+    with AuthConfigSupport
+    with AuthenticationElement {
 
-  private val postForm = Form{
+  private val postForm = Form {
     "content" -> nonEmptyText
   }
 
-  def post(page:Int):Action[AnyContent] = StackAction{implicit request =>
-    val user =loggedIn
-    postForm.bindFromRequest().fold(
-      { formWithErrors =>
-        handleError(page,user, formWithErrors)
-      },{ content =>
-        createMicroPost(page,user,content)
-      }
-    )
+  def post(page: Int): Action[AnyContent] = StackAction { implicit request =>
+    val user = loggedIn
+    postForm
+      .bindFromRequest()
+      .fold(
+        { formWithErrors =>
+          handleError(page, user, formWithErrors)
+        }, { content =>
+          createMicroPost(page, user, content)
+        }
+      )
   }
+
   private def createMicroPost(page: Int,
                               user: User,
                               content: String
-                             )(implicit request:RequestHeader) = {
-    val now = ZonedDateTime.now
+                             )(implicit request: RequestHeader) = {
+    val now       = ZonedDateTime.now
     val microPost = MicroPost(None, user.id.get, content, now, now)
     microPostService
       .create(microPost)
-      .map{ _ =>
+      .map { _ =>
         Redirect(routes.HomeController.index(page))
       }
-      .recover{
+      .recover {
         case e: Exception =>
           Logger.error("occurred error", e)
           Redirect(routes.HomeController.index())
@@ -59,15 +61,25 @@ class PostController @Inject()(
   }
 
   private def handleError(page: Int,
-                          user: PostController.this.User,
+                          user: User,
                           formWithErrors: Form[String]
-                         )(implicit request:RequestHeader) = {
-    microPostService
-      .findAllByWithLimitOffset(Pagination(10,page),user.id.get)
-      .map{pagedItems =>
-        BadRequest(views.html.index(Some(user), formWithErrors, pagedItems))
+                         )(implicit request: RequestHeader) = {
+    favoriteService.findFavoritesByUserId(Pagination(10, page), user.id.get)
+      .map { favorites =>
+        microPostService
+          .findAllByWithLimitOffset(Pagination(10, page), user.id.get)
+          .map { pagedItems =>
+            BadRequest(views.html.index(Some(user), formWithErrors, pagedItems, favorites))
+          }
+          .recover {
+            case e: Exception =>
+              Logger.error("occurred error", e)
+              Redirect(routes.HomeController.index())
+                .flashing("failure" -> Messages("InternalError"))
+          }
+          .getOrElse(InternalServerError(Messages("InternalError")))
       }
-      .recover{
+      .recover {
         case e: Exception =>
           Logger.error("occurred error", e)
           Redirect(routes.HomeController.index())
@@ -76,15 +88,17 @@ class PostController @Inject()(
       .getOrElse(InternalServerError(Messages("InternalError")))
   }
 
-  def delete(microPostId:Long, page:Int):Action[AnyContent] = StackAction{implicit request =>
-    microPostService.deleteById(microPostId)
-      .map{ _ =>
+  def delete(microPostId: Long, page: Int): Action[AnyContent] = StackAction { implicit request =>
+    microPostService
+      .deleteById(microPostId)
+      .map { _ =>
         Redirect(routes.HomeController.index(page))
       }
-      .recover{
-        case e:Exception =>
+      .recover {
+        case e: Exception =>
+          Logger.error("occurred error", e)
           Redirect(routes.HomeController.index())
-              .flashing("failure" -> Messages("InternalError"))
+            .flashing("failure" -> Messages("InternalError"))
       }
       .getOrElse(InternalServerError(Messages("InternalError")))
   }

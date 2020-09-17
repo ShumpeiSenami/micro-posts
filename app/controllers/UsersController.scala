@@ -1,64 +1,84 @@
 package controllers
 
-import javax.inject._
+import javax.inject.{Inject, Singleton}
 
 import jp.t2v.lab.play2.auth.AuthenticationElement
 import models.User
 import play.api.Logger
 import play.api.i18n.{I18nSupport, Messages}
 import play.api.mvc._
-import services.{UserService, MicroPostService,UserFollowService}
+import services.{MicroPostService, UserFollowService, UserService, FavoriteService}
 import skinny.Pagination
 
 @Singleton
-class UsersController @Inject()(
-                               val userService: UserService,
-                               val microPostService: MicroPostService,
-                               val userFollowService: UserFollowService,
-                               components:ControllerComponents
-                               ) extends AbstractController(components)
-  with I18nSupport
-  with AuthConfigSupport
-  with AuthenticationElement {
+class UsersController @Inject()(val userService: UserService, val microPostService: MicroPostService, val userFollowService: UserFollowService, val favoriteService: FavoriteService, components: ControllerComponents)
+  extends AbstractController(components)
+    with I18nSupport
+    with AuthConfigSupport
+    with AuthenticationElement {
 
-  def index(page:Int):Action[AnyContent] = StackAction{ implicit request =>
+  def index(page: Int): Action[AnyContent] = StackAction { implicit request =>
     userService.findAll(Pagination(pageSize = 10, pageNo = page))
-      .map{users =>
-        Ok(views.html.users.index(loggedIn,users))
-      }.recover{
-      case e:Exception =>
-        Logger.error(s"occured error", e)
-        Redirect(routes.UsersController.index())
-          .flashing("failure" -> (Messages("InternalError")))
-    }.getOrElse(InternalServerError(Messages("InternalError")))
+      .map { users =>
+        Ok(views.html.users.index(loggedIn, users))
+      }
+      .recover {
+        case e: Exception =>
+          Logger.error(s"occurred error", e)
+          Redirect(routes.UsersController.index())
+            .flashing("failure" -> Messages("InternaError"))
+      }
+      .getOrElse(InternalServerError(Messages("InternaError")))
   }
 
-  def show(userId:Long,page:Int) = StackAction{implicit request =>
+  /*
+    def show(userId: Long) = StackAction { implicit request =>
+      userService
+        .findById(userId)
+        .map { userOpt =>
+          userOpt.map { user =>
+            Ok(views.html.users.show(loggedIn, user))
+          }.get
+        }
+        .recover {
+          case e: Exception =>
+            Logger.error(s"occurred error", e)
+            Redirect(routes.UsersController.index())
+              .flashing("failure" -> Messages("InternalError"))
+        }
+        .getOrElse(InternalServerError(Messages("InternalError")))
+    }
+   */
+
+  def show(userId: Long, page: Int) = StackAction { implicit request =>
     val triedUserOpt        = userService.findById(userId)
     val triedUserFollows    = userFollowService.findById(loggedIn.id.get)
     val pagination          = Pagination(10, page)
     val triedMicroPosts     = microPostService.findByUserId(pagination, userId)
     val triedFollowingsSize = userFollowService.countByUserId(userId)
     val triedFollowersSize  = userFollowService.countByFollowId(userId)
-    (for{
+    val triedFavorites = favoriteService.findFavoritesByUserId(Pagination(10, page), loggedIn.id.get)
+    (for {
       userOpt        <- triedUserOpt
       userFollows    <- triedUserFollows
       microPosts     <- triedMicroPosts
       followingsSize <- triedFollowingsSize
       followersSize  <- triedFollowersSize
+      favorites <- triedFavorites
     } yield {
-      userOpt.map{user =>
-        Ok(views.html.users.show(loggedIn,user,userFollows,microPosts,followingsSize,followersSize))
+      userOpt.map { user =>
+        Ok(views.html.users.show(loggedIn, user, userFollows, microPosts, followingsSize, followersSize, favorites))
       }.get
-    }).recover{
-      case e:Exception =>
-        Logger.error(s"occurred error",e)
+    }).recover {
+      case e: Exception =>
+        Logger.error(s"occurred error", e)
         Redirect(routes.UsersController.index())
-            .flashing("failure" -> Messages("InternalError"))
+          .flashing("failure" -> Messages("InternalError"))
     }
-        .getOrElse(InternalServerError(Messages("InternalError")))
+      .getOrElse(InternalServerError(Messages("InternalError")))
   }
 
+  // 以下は追加
 
   def getFollowers(userId: Long, page: Int) = StackAction { implicit request =>
     val targetUser           = User.findById(userId).get
@@ -123,4 +143,5 @@ class UsersController @Inject()(
     }
       .getOrElse(InternalServerError(Messages("InternalError")))
   }
+
 }
